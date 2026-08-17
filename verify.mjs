@@ -110,5 +110,29 @@ check("oldest pending", Math.max(...pending.map((r) => +r.days_open)),
 const over90 = pending.filter((r) => +r.days_open > 90).length;
 check("pending >90d", `${Math.round((100 * over90) / pending.length)}%`, `${Math.round((100 * over90) / pending.length)}% of\nthem for more than 90 days`);
 
-console.log(bad ? `\n${bad} claim(s) in the README are not supported by bids.csv.` : "\nEvery number in the README re-derives from bids.csv.");
+// ---- claims that live in jobs.csv, not bids.csv ----
+// The biddable count and the advertised total are the two numbers a reader is most likely to
+// quote, and both come from job metadata rather than bids. Checking them from the same file
+// the collector wrote keeps the whole README under one verifier instead of two.
+const jrows = readFileSync(join(HERE, "jobs.csv"), "utf8").trim().split(/\r?\n/);
+const jcols = jrows[0].split(",");
+const jobs = jrows.slice(1).map((l) => {
+  const out = []; let cur = "", q = false;
+  for (const ch of l) {
+    if (ch === '"') { q = !q; continue; }
+    if (ch === "," && !q) { out.push(cur); cur = ""; } else cur += ch;
+  }
+  out.push(cur);
+  return Object.fromEntries(jcols.map((k, i) => [k, out[i]]));
+});
+const openJobs = jobs.filter((j) => j.status === "OPEN");
+const biddable = jobs.filter((j) => j.biddable === "1");
+check("biddable jobs", `${biddable.length}/${openJobs.length}`,
+  `**${biddable.length} of ${openJobs.length} (${Math.round((100 * biddable.length) / openJobs.length)}%)**`);
+check("advertised on biddable", `$${(biddable.reduce((s, j) => s + (+j.budget_cents || 0), 0) / 100).toFixed(2)}`,
+  `**$${(biddable.reduce((s, j) => s + (+j.budget_cents || 0), 0) / 100).toFixed(2)}**`);
+const blocked = openJobs.length - biddable.length;
+check("deadline-passed count", blocked, `Posting a bid to ${blocked} of them returns`);
+
+console.log(bad ? `\n${bad} claim(s) in the README are not supported by the CSVs.` : "\nEvery number in the README re-derives from bids.csv and jobs.csv.");
 process.exitCode = bad ? 1 : 0;

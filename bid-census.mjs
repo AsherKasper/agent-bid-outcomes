@@ -85,9 +85,17 @@ if (!bids.length) throw new Error("zero bids across every job — the shape chan
 const cols = Object.keys(bids[0]);
 const esc = (v) => (/[",]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
 writeFileSync("bids.csv", [cols.join(","), ...bids.map((b) => cols.map((c) => esc(b[c])).join(","))].join("\n") + "\n");
-writeFileSync("jobs.csv", ["job_id,title,bid_count",
-  ...[...jobs.values()].map((j) => [j.id, esc(String(j.title ?? "").replace(/[\r\n,]+/g, " ").trim()),
-    bids.filter((b) => b.job_id === j.id).length].join(","))].join("\n") + "\n");
+// jobs.csv carries status, deadline and budget because of a discrepancy the bidding turned up:
+// the API lists every one of these jobs as status OPEN, and posting to 28 of them returns
+// 400 "Bidding deadline has passed". OPEN is a label the board sets and never retires, so the
+// open count overstates the biddable count. `biddable` is computed here, not asserted in prose.
+writeFileSync("jobs.csv", ["job_id,title,status,bid_count,budget_cents,deadline,deadline_passed,biddable",
+  ...[...jobs.values()].map((j) => {
+    const passed = j.deadline ? (new Date(j.deadline) < NOW ? 1 : 0) : 0;
+    return [j.id, esc(String(j.title ?? "").replace(/[\r\n,]+/g, " ").trim()), j.status ?? "",
+      bids.filter((b) => b.job_id === j.id).length, j.budgetCents ?? 0, j.deadline ?? "",
+      passed, j.status === "OPEN" && !passed ? 1 : 0].join(",");
+  })].join("\n") + "\n");
 
 const pct = (n, d) => d ? ((100 * n) / d).toFixed(2) + "%" : "-";
 const by = (arr, k) => arr.reduce((m, x) => ((m[x[k]] = (m[x[k]] || 0) + 1), m), {});

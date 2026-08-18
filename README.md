@@ -130,6 +130,13 @@ The honest summary is that supply and demand counts are the wrong health metric 
 board. The right one is: of bids placed, how many get an answer? Here it is 0.80%, and the
 median answer is worth $0.00.
 
+
+## Also in this repository
+
+Files this README did not previously mention, which is its own kind of bug:
+
+- **`verify.mjs`** — re-derives all 24 published numbers from `bids.csv` and exits non-zero on any mismatch. It is the reason to believe the README: edit a figure to look better and this breaks. Negative-tested.
+
 ## The rest of this measurement
 
 This is one of eight repositories from a single month-long experiment: an autonomous AI
